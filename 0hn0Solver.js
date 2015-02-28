@@ -192,7 +192,7 @@ solver = function(){
 		return results;
 	}
 
-	function findForcedBlues(array) {
+	function findForcedBlues(array, log) {
 		var results = [];
 		for(var y = 0; y < array.length; ++y) {
 			for(var x = 0; x < array[y].length; ++x) {
@@ -200,20 +200,33 @@ solver = function(){
 					allVisible = visibleFrom(x,y,array,true);
 					var sortedVisible = [allVisible.up, allVisible.down, allVisible.left, allVisible.right].sort(function(a,b){return b.length -a.length;});
 					if ( sortedVisible[0].length > sortedVisible[1].length ) { // one side has more visible than all other. see if we can force some blues in there
+						// todo: this only supports cases where one side is longer than all others. Fix to catch other cases
 						var forcedCount = array[x][y] - sortedVisible[1].length - sortedVisible[2].length - sortedVisible[3].length;
 						if ( forcedCount < sortedVisible[0].length ) { // will only be false if the board is jacked (which is ok)
+							var blues = [];
 							for(var i = 0; i < forcedCount; ++i) {
 								if ( array[sortedVisible[0][i].x][sortedVisible[0][i].y] === null ) {
-									results.push({x:sortedVisible[0][i].x, y:sortedVisible[0][i].y});
+									var blue = {x:sortedVisible[0][i].x, y:sortedVisible[0][i].y};
+									results.push(blue);
+									blues.push(blue);
 								}
 							}
+							log.push({message:"These must be blue, otherwise not enough are visible", blues:blues, target:{x:x,y:y}});
 						}
 					} else if (sortedVisible[0].length > 0 && sortedVisible[1].length == 0) { // only one direction left to look in
+						// todo: not hitting this very often/ever. does it work?
+						// oh, because the above catches it. silly. Why did I write it?
+						// maybe I'll make this run first since the log will be more human friendly then
+						var blues = [];
 						for(var i = 0; i < array[x][y]; ++i) {
-								if ( array[sortedVisible[0][i].x][sortedVisible[0][i].y] === null ) {
-									results.push({x:sortedVisible[0][i].x, y:sortedVisible[0][i].y});
-								}
+							if ( array[sortedVisible[0][i].x][sortedVisible[0][i].y] === null ) {
+								var blue = {x:sortedVisible[0][i].x, y:sortedVisible[0][i].y};
+								results.push(blue);
+								blues.push(blue);
 							}
+						}
+						log.push({message:"This cell can only see in one direction, therefore these must be blue", blues:blues, target:{x:x,y:y}});
+						// todo: can mark a red too. Also if it cant mark a red, then this board is invalid
 					}
 
 
@@ -265,9 +278,9 @@ solver = function(){
 		$(e).trigger({type:'mousedown',which:3}).trigger({type:'mouseup'});
 	}
 
-	function solveStep(array) {
+	function solveStep(array, log) {
 		var completeCoords = findCompleteBlues(array);
-		var forcedCoords = findForcedBlues(array);
+		var forcedCoords = findForcedBlues(array, log);
 		while ((forcedCoords.length + completeCoords.length) > 0) {
 			for(var i in forcedCoords) {
 				array[forcedCoords[i].x][forcedCoords[i].y] = 0;
@@ -275,6 +288,9 @@ solver = function(){
 		
 			for(var i = 0; i < completeCoords.length; ++i){
 				if ( !completeCoords[i].claimed ) {
+					// todo: add actions to log (marked blues/reds)
+					log.push({message:"This cell can see all of its cells.", target:completeCoords[i]});
+
 					var visible = visibleFrom(completeCoords[i].x, completeCoords[i].y,array,true).all;
 					for(var vi = 0; vi < visible.length; ++vi){
 						if ( array[visible[vi].x][visible[vi].y] === null ) {
@@ -282,6 +298,11 @@ solver = function(){
 						}
 					}
 				}
+				else {
+					// todo: add actions to log (marked blues/reds)
+					log.push({message:"This cell can see all of its cells, and they've all been marked blue already", target:completeCoords[i]});
+				}
+
 				
 				addReds(completeCoords[i].x, completeCoords[i].y, array);
 				
@@ -289,7 +310,7 @@ solver = function(){
 			}
 			
 			completeCoords = findCompleteBlues(array);
-			forcedCoords = findForcedBlues(array);
+			forcedCoords = findForcedBlues(array, log);
 		}
 		
 		return array;
@@ -368,12 +389,14 @@ solver = function(){
 		var maxDepth = 0;
 		var maxDepthBoards = [];
 		var queue = [];
-		
+
+		var log = [];		
 		
 		var newBoard = copyBoard(array);
-		solveStep(newBoard);
+		solveStep(newBoard, log);
 		blockInvisibleSpaces(newBoard);
 		queue.push({board:newBoard, lastMove:[{x:-1, y:-1, lastTarget:null}], depth:0});
+		var lastDepth = -1;
 
 		function iteration() {
 			if (queue.length > 0){
@@ -383,7 +406,20 @@ solver = function(){
 				var boardState = queue.shift();
 				var board = boardState.board;
 				boardsChecked++;
+
+				if ( lastDepth > boardState.depth) {
+					log.push({message:"Backtracking!"});
+				} else if ( lastDepth == boardState.depth) {
+					log.push({message:"That didnt work..."});
+				}
+				lastDepth = boardState.depth;
+
+				if ( boardState.lastMove[0].x >= 0 ) {
+					log.push({message:"Trying to place a red", target:boardState.lastMove[0]});
+				}
 				
+				solveStep(board, log);
+				blockInvisibleSpaces(board);
 					
 				arrayToBoard(board);
 				
@@ -402,6 +438,9 @@ solver = function(){
 					var p = potentialRed(board, boardState.lastMove);
 					if ( p.options.length === 0  ) {
 						arrayToBoard(board);
+						for(var i = 0; i < log.length; ++i) {
+							console.log(log[i].message);
+						}
 
 						return;
 					}
@@ -410,9 +449,7 @@ solver = function(){
 						for(var i = p.options.length - 1; i >= 0; --i) {
 							var newBoard = copyBoard(board);
 							newBoard[p.options[i].x][p.options[i].y] = -1;
-							solveStep(newBoard);
-							blockInvisibleSpaces(newBoard);
-							
+														
 							var lastMoveCopy = JSON.parse(JSON.stringify(boardState.lastMove))
 							lastMoveCopy.unshift({x:p.options[i].x, y:p.options[i].y, target: p.target});
 							queue.unshift({board:newBoard, lastMove: lastMoveCopy, depth:boardState.depth+1});					

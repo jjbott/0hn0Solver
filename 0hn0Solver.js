@@ -303,7 +303,7 @@ solver = function(){
 				if ( array[x][y] > 0 ) {
 					allVisible = visibleFrom(x,y,array,true);
 					var sortedVisible = [allVisible.up, allVisible.down, allVisible.left, allVisible.right].sort(function(a,b){return b.length -a.length;});
-					if ( sortedVisible[0].length > sortedVisible[1].length ) {
+					if ( sortedVisible[0].length > sortedVisible[1].length ) { // one side has more visible than all other. see if we can force some blues in there
 						var forcedCount = array[x][y] - sortedVisible[1].length - sortedVisible[2].length - sortedVisible[3].length;
 						if ( forcedCount < sortedVisible[0].length ) { // will only be false if the board is jacked (which is ok)
 							for(var i = 0; i < forcedCount; ++i) {
@@ -312,7 +312,15 @@ solver = function(){
 								}
 							}
 						}
+					} else if (sortedVisible[0].length > 0 && sortedVisible[1].length == 0) { // only one direction left to look in
+						for(var i = 0; i < array[x][y]; ++i) {
+								if ( array[sortedVisible[0][i].x][sortedVisible[0][i].y] === null ) {
+									results.push({x:sortedVisible[0][i].x, y:sortedVisible[0][i].y});
+								}
+							}
 					}
+
+
 				}
 			}
 		}

@@ -1,38 +1,12 @@
 solver = function(){
 	function boardToArray() {
-		// TODO: Using the tiles array (like I started below) is probably faster
-		
-		var size = Math.sqrt($('#grid td').length);
-		var array = [];
-		for(var x = 0; x < size; ++x) {
-			array.push([]);
-			for(var y = 0; y < size; ++y) {
-				var cell = $('#grid td[data-x="' + x + '"][data-y="' + y + '"]');
-				var value = cell.text();// .tile-')
-				if ( value !== '' ) {
-					array[x].push(parseInt(value, 10));
-				}
-				else if (cell.find('.tile-').length > 0) {
-					array[x].push(null); // unknown tile
-				}
-				else if (cell.find('.tile-2').length > 0) {
-					array[x].push(0); // blue dot
-				}
-				else {
-					array[x].push(-1); // red tile
-				}
-			}
-		}
-		return array;
-		
-		/*
 		var size = Math.sqrt(tiles.length);
 		var array = [];
 		for(var x = 0; x < size; ++x) {
 			array.push([]);
 			for(var y = 0; y < size; ++y) {
 				var cell = tiles[x + (y * size)];
-				if ( cell.type === 'Number' ) {
+				if ( cell.type === 'Value' ) {
 					array[x].push(parseInt(cell.value, 10));
 				}
 				else if (cell.type === 'Unknown') {
@@ -47,7 +21,7 @@ solver = function(){
 			}
 		}
 		return array;
-		*/
+		
 	}
 
 	function outputArray(array) {

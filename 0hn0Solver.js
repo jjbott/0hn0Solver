@@ -24,26 +24,6 @@ solver = function(){
 		
 	}
 
-	function outputArray(array) {
-	/*
-		for(var y = 0; y < array.length; ++y) {
-			var s = '';
-			for(var x = 0; x < array[y].length; ++x) {
-				if ( array[x][y] !== null && array[x][y] >= 0 ) {
-					s += array[x][y].toString();
-				}
-				else if (array[x][y] < 0) {
-					s += 'X';
-				}
-				else {
-					s += '_';
-				}
-			}
-			console.log(s);
-		}
-		*/
-	}
-
 	function arrayToString(array) {
 		var s = '';
 		for(var y = 0; y < array.length; ++y) {
@@ -112,24 +92,6 @@ solver = function(){
 		return true;
 	}
 
-	function potentialBlue(array) {
-		var results = [];
-		for(var y = 0; y < array.length; ++y) {
-			for(var x = 0; x < array[y].length; ++x) {
-				if ( (array[x][y] === null)
-					&& ( (x > 0 && array[x-1][y] !== null && array[x-1][y] >= 0)
-						|| (x < (array.length-1) && array[x+1][y] !== null && array[x+1][y] >= 0)
-						|| (y > 0 && array[x][y-1] !== null && array[x][y-1] >= 0)
-						|| (y < (array.length-1) && array[x][y+1] !== null && array[x][y+1] >= 0) ) ) {
-					
-					results.push({x:x, y:y});
-				}
-			}
-		}
-		
-		return results;
-	}
-
 	function potentialRed(array, lastMove) {
 		// TODO: This works pretty darn well. But it is dumb with regards to available options.
 		// It'll happily say the '?' here is a valid option, just because it's a visible blank.
@@ -145,6 +107,8 @@ solver = function(){
 		// _D_
 		// ...will check A with B, then B with A, then A with B and C, then B with C and A, etc...
 		// need to sort visibles so we have a better pattern we can filter on 
+
+		// BIGGER BIGGER TODO: If we can force more reds and blues, the intelligence of this method wont be a big deal
 		var minOptions = [];
 		var minTarget = null;
 		
@@ -174,11 +138,7 @@ solver = function(){
 					var visible = visibleFrom(x,y,array, true).all;
 					visible = visible.sort(function(a,b){ return ((a.y * array.length) + a.x) - ((b.y * array.length) + b.x);});
 					for(var i in visible) {
-						if ( (array[visible[i].x][visible[i].y] === null)
-							// TODO: visibles arent sorted...
-							//&& ( (visible[i].y > lastMove.y)
-							//	|| (visible[i].y == lastMove.y && visible[i].x > lastMove.x) ) 
-							) {
+						if ( (array[visible[i].x][visible[i].y] === null) ) {
 							options.push({x:visible[i].x, y:visible[i].y});
 						}
 					}
@@ -192,34 +152,6 @@ solver = function(){
 		}
 		
 		return {target: minTarget, options: minOptions || []};
-	/*
-		// TODO: Pick value with the least options instead of highest value.
-		// Wont need it to track it. Once chosen, as depth increases its # of options can only go lower, 
-		// so we'll keep picking it automagically until it is solved
-		
-		var maxNumber = 0;
-		var maxNumberCell = null;;
-		var results = [];
-		for(var y = 0; y < array.length; ++y) {
-			for(var x = 0; x < array[y].length; ++x) {
-				if ( array[x][y] !== null && (array[x][y] > maxNumber) ) {
-					maxNumber = array[x][y];
-					maxNumberCell = {x:x, y:y};
-				}
-			}
-		}
-		
-		if ( maxNumberCell !== null ){
-			var visible = visibleFrom(maxNumberCell.x,maxNumberCell.y,array, true);
-			for(var i in visible) {
-				if ( array[visible[i].x][visible[i].y] === null ) {
-					results.push({x:visible[i].x, y:visible[i].y});
-				}
-			}
-		}
-
-		return results;
-		*/
 	}
 
 	function validBlue(array) {
@@ -254,15 +186,6 @@ solver = function(){
 							results.push({x:x, y:y, claimed:false});
 						}
 					}
-					/*
-					allVisible = visibleFrom(x,y,array,true);
-					if ( allVisible.all.length == array[x][y] ) {
-					
-						var blueVisible = visibleFrom(x,y,array,false);
-						
-						results.push({x:x, y:y, claimed:(blueVisible.all.length == allVisible.all.length)});
-					}
-					*/
 				}
 			}
 		}
@@ -270,7 +193,6 @@ solver = function(){
 	}
 
 	function findForcedBlues(array) {
-		//debugger;
 		var results = [];
 		for(var y = 0; y < array.length; ++y) {
 			for(var x = 0; x < array[y].length; ++x) {
@@ -351,7 +273,6 @@ solver = function(){
 				array[forcedCoords[i].x][forcedCoords[i].y] = 0;
 			}
 		
-			//debugger;
 			for(var i = 0; i < completeCoords.length; ++i){
 				if ( !completeCoords[i].claimed ) {
 					var visible = visibleFrom(completeCoords[i].x, completeCoords[i].y,array,true).all;
@@ -453,9 +374,7 @@ solver = function(){
 		solveStep(newBoard);
 		blockInvisibleSpaces(newBoard);
 		queue.push({board:newBoard, lastMove:[{x:-1, y:-1, lastTarget:null}], depth:0});
-		
-		//var seen = {};
-		
+
 		function iteration() {
 			if (queue.length > 0){
 			
@@ -465,65 +384,41 @@ solver = function(){
 				var board = boardState.board;
 				boardsChecked++;
 				
-				//var str = arrayToString(board);
-				//if ( !seen[str] ) {
-					//debugger;
+					
+				arrayToBoard(board);
+				
+				if ( isBoardValid(board, false) ) {
+							
+					if ( maxDepth <= boardState.depth) {
+						if ( maxDepth < boardState.depth ) {
+							maxDepthBoards = [];
+						}
+						
+						maxDepth = boardState.depth;
+						maxDepthBoards.push(board);
+					}
+					
+					
+					var p = potentialRed(board, boardState.lastMove);
+					if ( p.options.length === 0  ) {
+						arrayToBoard(board);
 
-					//seen[str] = true;
-					
-					arrayToBoard(board);
-					
-					if ( isBoardValid(board, false) ) {
-								
-						if ( maxDepth <= boardState.depth) {
-							if ( maxDepth < boardState.depth ) {
-								maxDepthBoards = [];
-							}
+						return;
+					}
+					else {
+				
+						for(var i = p.options.length - 1; i >= 0; --i) {
+							var newBoard = copyBoard(board);
+							newBoard[p.options[i].x][p.options[i].y] = -1;
+							solveStep(newBoard);
+							blockInvisibleSpaces(newBoard);
 							
-							maxDepth = boardState.depth;
-							maxDepthBoards.push(board);
-							
-							//console.log("queue size: " + queue.length + ", boardsChecked: " + boardsChecked + ", depth: " + boardState.depth + ", lastX: " + boardState.lastMove[0].x + ", lastY: " + boardState.lastMove[0].y );
-						}
-						
-						
-						var p = potentialRed(board, boardState.lastMove);
-						if ( p.options.length === 0  ) {
-							//console.log("queue size: " + queue.length + ", boardsChecked: " + boardsChecked + ", depth: " + boardState.depth + ", lastX: " + boardState.lastMove[0].x + ", lastY: " + boardState.lastMove[0].y );
-							//outputArray(board);
-							arrayToBoard(board);
-							/*
-							for(var y = 0; y < array.length; ++y) {
-								for(var x = 0; x < array[y].length; ++x) {
-									if ( array[x][y] === null) {
-										var cell = $('#grid td[data-x="' + x + '"][data-y="' + y + '"]')[0];
-										if ( board[x][y] === 0 ) {
-											clickElement(cell)
-										}
-										else {
-											rightClickElement(cell);
-										}
-									}
-								}
-							}
-							*/
-							return;
-						}
-						else {
-					
-							for(var i = p.options.length - 1; i >= 0; --i) {
-								var newBoard = copyBoard(board);
-								newBoard[p.options[i].x][p.options[i].y] = -1;
-								solveStep(newBoard);
-								blockInvisibleSpaces(newBoard);
-								
-								var lastMoveCopy = JSON.parse(JSON.stringify(boardState.lastMove))
-								lastMoveCopy.unshift({x:p.options[i].x, y:p.options[i].y, target: p.target});
-								queue.unshift({board:newBoard, lastMove: lastMoveCopy, depth:boardState.depth+1});					
-							}
+							var lastMoveCopy = JSON.parse(JSON.stringify(boardState.lastMove))
+							lastMoveCopy.unshift({x:p.options[i].x, y:p.options[i].y, target: p.target});
+							queue.unshift({board:newBoard, lastMove: lastMoveCopy, depth:boardState.depth+1});					
 						}
 					}
-				//}
+				}
 				
 				setTimeout(iteration, delay);
 			}
@@ -541,5 +436,3 @@ solver = function(){
 	}
 }();
 
-//outputArray(boardToArray());
-//solve(boardToArray());
